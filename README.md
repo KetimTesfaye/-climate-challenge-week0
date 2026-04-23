@@ -8,16 +8,16 @@ The project evaluates key climate trends, seasonal patterns, and anomalies to su
 ## Folder Structure
 Following best practices for Data Engineering and Machine Learning projects:
 ```text
-├── .vscode/               # Workspace settings
+├── .vscode/              
 │   └── settings.json
-├── .github/               # CI/CD workflows
+├── .github/               
 │   └── workflows/
 │       └── ci.yml
-├── data/                  # Cleaned datasets (Git ignored)
-├── notebooks/             # EDA and Comparison Notebooks
+├── data/                
+├── notebooks/            
 │   ├── __init__.py
 │   └── README.md
-├── scripts/               # Data processing scripts
+├── scripts/              
 │   ├── __init__.py
 │   └── README.md
 ├── src/                   
