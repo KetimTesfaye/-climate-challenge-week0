@@ -1,0 +1,12 @@
+# Data and local files
+data/
+*.csv
+.ipynb_checkpoints/
+
+# Environments
+venv/
+.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
