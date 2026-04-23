@@ -20,8 +20,8 @@ Following best practices for Data Engineering and Machine Learning projects:
 ├── scripts/               # Data processing scripts
 │   ├── __init__.py
 │   └── README.md
-├── src/                   # Core source code
-├── tests/                 # Unit tests
-├── .gitignore             # Files to exclude from Git
-├── requirements.txt       # Project dependencies
-└── README.md              # Project documentation
+├── src/                   
+├── tests/                 
+├── .gitignore            
+├── requirements.txt       
+└── README.md             
