@@ -6,59 +6,77 @@ import os
 st.set_page_config(page_title="COP32 Climate Portal", layout="wide")
 st.title("🌍 Regional Climate Vulnerability Dashboard")
 
-# --- DIRECT PATH DEFINITION ---
-# Pointing specifically to your notebooks folder where the _clean.csv files are
+# --- PATH CONFIG ---
+# Using the notebook path where your _clean.csv files live
 DATA_DIR = r"C:\Users\HP\Desktop\10acadamey\week0\-climate-challenge-week0\notebooks"
 
 @st.cache_data
-def load_country_data(country):
-    # Matches the 'country_clean.csv' format seen in your VS Code sidebar
-    file_name = f"{country.lower()}_clean.csv"
-    file_path = os.path.join(DATA_DIR, file_name)
-    
-    if os.path.exists(file_path):
-        data = pd.read_csv(file_path)
-        # Ensure 'Date' is reconstructed if it wasn't saved as a single column
-        if 'YEAR' in data.columns and 'DOY' in data.columns:
-            data['Date'] = pd.to_datetime(data['YEAR'] * 1000 + data['DOY'], format='%Y%j')
-        return data
-    return None
+def load_all_data():
+    countries = ["Ethiopia", "Kenya", "Nigeria", "Sudan", "Tanzania"]
+    all_dfs = []
+    for c in countries:
+        file_path = os.path.join(DATA_DIR, f"{c.lower()}_clean.csv")
+        if os.path.exists(file_path):
+            temp_df = pd.read_csv(file_path)
+            temp_df['Country'] = c
+            # Ensure Date is datetime
+            if 'YEAR' in temp_df.columns and 'DOY' in temp_df.columns:
+                temp_df['Date'] = pd.to_datetime(temp_df['YEAR'] * 1000 + temp_df['DOY'], format='%Y%j')
+            all_dfs.append(temp_df)
+    return pd.concat(all_dfs, ignore_index=True) if all_dfs else None
 
-# --- Sidebar Filters ---
-st.sidebar.header("Filter Options")
-country_list = ["Ethiopia", "Kenya", "Nigeria", "Sudan", "Tanzania"]
-selected_country = st.sidebar.selectbox("Select a Country", country_list)
+# Load dataset
+df_master = load_all_data()
 
-df = load_country_data(selected_country)
+if df_master is not None:
+    # --- Sidebar Filters ---
+    st.sidebar.header("Dashboard Controls")
+    
+    # 1. Country Multi-select
+    selected_countries = st.sidebar.multiselect(
+        "Select Countries to Compare", 
+        options=df_master['Country'].unique(),
+        default=["Ethiopia"]
+    )
+    
+    # 2. Year Range Slider
+    min_year = int(df_master['YEAR'].min())
+    max_year = int(df_master['YEAR'].max())
+    year_range = st.sidebar.slider("Select Year Range", min_year, max_year, (min_year, max_year))
 
-if df is not None:
-    st.success(f"✅ Data loaded successfully from: {selected_country}_clean.csv")
-    
-    # 1. Top Level Metrics
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Avg Temp", f"{df['T2M'].mean():.1f} °C")
-    col2.metric("Max Temp", f"{df['T2M_MAX'].max():.1f} °C")
-    col3.metric("Avg Rain", f"{df['PRECTOTCORR'].mean():.2f} mm")
+    # --- Data Filtering ---
+    filtered_df = df_master[
+        (df_master['Country'].isin(selected_countries)) & 
+        (df_master['YEAR'] >= year_range[0]) & 
+        (df_master['YEAR'] <= year_range[1])
+    ]
 
-    # 2. Charts
-    # Preparing monthly data for the charts
-    df['Date'] = pd.to_datetime(df['Date'])
-    monthly = df.set_index('Date').resample('ME').agg({
-        'T2M': 'mean', 
-        'PRECTOTCORR': 'sum'
-    }).reset_index()
-    
-    st.subheader(f"Historical Trends: {selected_country}")
-    
-    tab1, tab2 = st.tabs(["🌡️ Temperature", "🌧️ Precipitation"])
-    
-    with tab1:
-        st.line_chart(monthly.set_index('Date')['T2M'])
+    if not filtered_df.empty:
+        # --- Visualizations ---
         
-    with tab2:
-        st.bar_chart(monthly.set_index('Date')['PRECTOTCORR'])
+        # A. Temperature Trend Line Chart
+        st.subheader("🌡️ Average Temperature Trends")
+        # Resample to monthly for smoother lines
+        line_data = filtered_df.groupby(['Country', pd.Grouper(key='Date', freq='ME')])['T2M'].mean().reset_index()
+        st.line_chart(line_data, x='Date', y='T2M', color='Country')
 
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            # B. Precipitation Distribution Boxplot
+            st.subheader("🌧️ Rainfall Distribution")
+            import plotly.express as px
+            fig_box = px.box(filtered_df, x="Country", y="PRECTOTCORR", color="Country",
+                             title="Precipitation Spread (mm/day)",
+                             labels={"PRECTOTCORR": "Precipitation (mm)"})
+            st.plotly_chart(fig_box, use_container_width=True)
+
+        with col2:
+            st.info("""
+            **Analysis Note:** The boxplot highlights precipitation volatility. Large "whiskers" or many outliers indicate erratic rainy seasons, 
+            which is a primary indicator of climate vulnerability.
+            """)
+    else:
+        st.warning("No data matches the selected filters.")
 else:
-    st.error(f"❌ Data file not found for {selected_country}.")
-    st.info(f"The app is looking for `{selected_country.lower()}_clean.csv` in: `{DATA_DIR}`")
-    st.warning("Double-check that the filenames in your 'notebooks' folder match this exactly!")
+    st.error("Could not find the cleaned data files. Please check your data directory.")
